@@ -347,8 +347,8 @@ def build_body_html(info, comm, today, online_url=None):
             f'<a href="{online_url}" style="display:inline-block;background:#2f6df6;color:#fff;'
             f'text-decoration:none;font-weight:700;font-size:15px;padding:11px 26px;border-radius:8px">'
             f'🔗 在线查看完整交互报告</a>'
-            f'<div style="font-size:12px;color:#9aa4b2;margin-top:10px">如按钮无法点击，请复制链接到浏览器打开：<br>'
-            f'<span style="color:#2f6df6;word-break:break-all">{online_url}</span></div></div>')
+            f'<div style="font-size:12px;color:#9aa4b2;margin-top:10px">'
+            f'点击上方按钮即可在浏览器中打开完整报告</div></div>')
     return f"""<div style="font-family:-apple-system,PingFang SC,Microsoft YaHei,sans-serif;color:#1f2a37;max-width:760px;margin:0 auto;line-height:1.7">
 <h2 style="font-size:20px;margin:0 0 4px">两个开源项目，到底谁更受欢迎？—— 一图看懂</h2>
 <div style="color:#6b7280;font-size:13px;margin-bottom:6px">对比：TencentDB-Agent-Memory（<span style="color:#e23b3b">红</span>） vs CubeSandbox（<span style="color:#2f6df6">蓝</span>），均来自腾讯云 · 数据更新至 {today}（北京时间，T+0 实时）</div>
