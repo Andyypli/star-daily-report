@@ -337,9 +337,22 @@ def build_body_html(info, comm, today, online_url=None):
         for (fn, title), cid in zip(CHARTS, [c[0].replace('.png', '') for c in CHARTS]))
     da = ('+' + format(A['delta'], ',')) if A['delta'] > 0 else '0'
     db = ('+' + format(B['delta'], ',')) if B['delta'] > 0 else '0'
+    online_block = ""
+    if online_url:
+        online_block = (
+            f'<div style="background:#eef3ff;border:1px solid #d5e2ff;border-radius:10px;'
+            f'padding:16px 18px;text-align:center;margin:16px 0">'
+            f'<div style="font-size:13.5px;color:#1f2a37;margin-bottom:10px">'
+            f'📊 想看可交互的完整报告（可缩放、悬停查看每天数据）？直接点下方按钮，浏览器打开即可，无需下载：</div>'
+            f'<a href="{online_url}" style="display:inline-block;background:#2f6df6;color:#fff;'
+            f'text-decoration:none;font-weight:700;font-size:15px;padding:11px 26px;border-radius:8px">'
+            f'🔗 在线查看完整交互报告</a>'
+            f'<div style="font-size:12px;color:#9aa4b2;margin-top:10px">如按钮无法点击，请复制链接到浏览器打开：<br>'
+            f'<span style="color:#2f6df6;word-break:break-all">{online_url}</span></div></div>')
     return f"""<div style="font-family:-apple-system,PingFang SC,Microsoft YaHei,sans-serif;color:#1f2a37;max-width:760px;margin:0 auto;line-height:1.7">
 <h2 style="font-size:20px;margin:0 0 4px">两个开源项目，到底谁更受欢迎？—— 一图看懂</h2>
 <div style="color:#6b7280;font-size:13px;margin-bottom:6px">对比：TencentDB-Agent-Memory（<span style="color:#e23b3b">红</span>） vs CubeSandbox（<span style="color:#2f6df6">蓝</span>），均来自腾讯云 · 数据更新至 {today}（北京时间，T+0 实时）</div>
+{online_block}
 <div style="background:#f6f8fb;border-radius:10px;padding:14px 16px;font-size:13px;line-height:1.95;margin:14px 0">
 <b>📌 先看结论：</b><br>
 • <b>谁更火：</b>目前 CubeSandbox 全面领先——Star {CB['stars']:,}（对方 {CA['stars']:,}）、Fork {CB['forks']:,}（对方 {CA['forks']:,}）、贡献者 {CB['contributors']} 人（对方 {CA['contributors']} 人）。<br>
@@ -361,7 +374,134 @@ def build_body_html(info, comm, today, online_url=None):
 </div>"""
 
 
-def send_mail(history):
+# ============ 4.5 生成交互式在线报告（部署到 GitHub Pages） ============
+SITE_HTML = """<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>GitHub Star 增长对比 · 交互报告 · {today}</title>
+<script>{chartjs}</script>
+<style>
+:root{{color-scheme:light}}
+*{{box-sizing:border-box}}
+body{{margin:0;background:#f5f7fb;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:#1f2a37;line-height:1.7}}
+.wrap{{max-width:960px;margin:0 auto;padding:24px 18px 60px}}
+h1{{font-size:22px;margin:0 0 6px}}
+.sub{{color:#6b7280;font-size:13px;margin-bottom:18px}}
+.card{{background:#fff;border:1px solid #e5e9f0;border-radius:12px;padding:18px 20px;margin:16px 0;box-shadow:0 1px 3px rgba(15,30,60,.04)}}
+.concl{{background:#f6f8fb;border-radius:10px;padding:14px 16px;font-size:13.5px;line-height:2}}
+table{{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}}
+th,td{{padding:9px 10px;border:1px solid #e5e9f0;text-align:left;vertical-align:top}}
+td.n,th.n{{text-align:right;font-weight:700;white-space:nowrap}}
+.red{{color:#e23b3b}}.blue{{color:#2f6df6}}
+.chart-title{{font-weight:600;font-size:15px;margin:6px 0 4px}}
+.chart-box{{position:relative;height:360px}}
+.tools{{font-size:12px;color:#9aa4b2;margin-bottom:8px}}
+.btn{{display:inline-block;font-size:12px;color:#2f6df6;background:#eef3ff;border:1px solid #d5e2ff;border-radius:6px;padding:3px 10px;cursor:pointer;margin-right:6px}}
+.foot{{color:#9aa4b2;font-size:12px;margin-top:24px;border-top:1px solid #e5e9f0;padding-top:14px}}
+</style></head>
+<body><div class="wrap">
+<h1>两个开源项目，到底谁更受欢迎？—— 一图看懂（交互版）</h1>
+<div class="sub">对比：TencentDB-Agent-Memory（<span class="red">红</span>） vs CubeSandbox（<span class="blue">蓝</span>），均来自腾讯云 · 数据更新至 {today}（北京时间，T+0 实时）</div>
+<div class="card concl">{concl}</div>
+<div class="card"><div class="chart-title">📊 社区多维指标</div>{table}</div>
+{charts}
+<div class="foot">所有数据均来自 GitHub 官方实时计数，截止页面生成时刻（T+0），缺失日期以空白/虚线表示，绝不估算。本页由云端 GitHub Actions 每日自动生成并部署，与任何本地设备开关机无关。</div>
+</div>
+<script>
+const DATA={data_json};
+function mkChart(cvsId,ctype,labels,src,title){{
+  const ds=src.map(s=>({{label:s.label,data:s.data,
+    backgroundColor:ctype==='bar'?s.color:s.color+'22',
+    borderColor:s.color,borderWidth:ctype==='line'?2:0,
+    pointRadius:ctype==='line'?((c)=>c.raw==null?0:(c.dataIndex===c.dataset.data.length-1?5:2)):0,
+    pointHoverRadius:6,spanGaps:ctype==='line',
+    segment:ctype==='line'?{{borderDash:(c)=>c.p1DataIndex-c.p0DataIndex>1?[6,5]:undefined}}:undefined,
+    fill:ctype==='line',tension:0.2,barPercentage:0.95,categoryPercentage:0.85}}));
+  return new Chart(document.getElementById(cvsId),{{type:ctype,
+    data:{{labels:labels,datasets:ds}},
+    options:{{responsive:true,maintainAspectRatio:false,animation:false,interaction:{{mode:'index',intersect:false}},
+      plugins:{{legend:{{position:'top'}},title:{{display:true,text:title}},tooltip:{{enabled:true}}}},
+      scales:{{x:{{ticks:{{maxTicksLimit:20,autoSkip:true}},grid:{{display:false}}}},y:{{beginAtZero:true,title:{{display:true,text:'Star 数量'}}}}}}}}}});
+}}
+DATA.views.forEach(v=>mkChart(v.id,v.ctype,v.labels,v.src,v.title));
+</script></body></html>"""
+
+
+def build_interactive_site(history, comm, info, today):
+    """生成交互式在线报告 HTML（同源数据、内嵌 Chart.js、可缩放悬停），输出 site/index.html。"""
+    site_dir = os.path.join(BASE, "site")
+    os.makedirs(site_dir, exist_ok=True)
+
+    # 复用与图表相同的数据管线
+    days, series = load_series(history)
+    cal_daily = daily_from_cum(days, series)
+    rel_labels, rel_cum = aligned_series(days, series)
+    rel_daily = daily_from_cum(rel_labels, rel_cum)
+
+    def mk(dmap):
+        return [{"label": n, "data": dmap[n], "color": c} for _, n, c in REPOS]
+
+    views = [
+        {"id": "calDaily", "ctype": "bar", "labels": days,
+         "src": mk(cal_daily), "title": "① 每日新增 Star（按真实日期，空白=无真实日数据）"},
+        {"id": "calCum", "ctype": "line", "labels": days,
+         "src": [{"label": n, "data": series[n], "color": c} for _, n, c in REPOS],
+         "title": "② 累计 Star 总量（缺失区间以虚线连接；末点=最新真实总数）"},
+        {"id": "relDaily", "ctype": "bar", "labels": rel_labels,
+         "src": mk(rel_daily), "title": "③ 每日新增·对齐起点（比涨粉速度）"},
+        {"id": "relCum", "ctype": "line", "labels": rel_labels,
+         "src": mk(rel_cum), "title": "④ 累计 Star·对齐起点"},
+    ]
+
+    # 表格（与邮件同源指标）
+    CA = comm["TencentDB-Agent-Memory"]; CB = comm["CubeSandbox"]
+    rows = [
+        ("⭐ Star", f"{CA['stars']:,}", f"{CB['stars']:,}"),
+        ("🍴 Fork", f"{CA['forks']:,}", f"{CB['forks']:,}"),
+        ("👁 Watch", f"{CA['watchers']:,}", f"{CB['watchers']:,}"),
+        ("💬 Issue", f"{CA['issues_total']:,}", f"{CB['issues_total']:,}"),
+        ("🔀 Pull Request", f"{CA['pr_total']:,}（合并{CA['pr_merged']}）", f"{CB['pr_total']:,}（合并{CB['pr_merged']}）"),
+        ("📝 Commit", f"{CA['commits']:,}" if CA['commits'] else "—", f"{CB['commits']:,}" if CB['commits'] else "—"),
+        ("👥 Contributor", f"{CA['contributors']} 人", f"{CB['contributors']} 人"),
+        ("🏷 Release", f"{CA['releases']} 个", f"{CB['releases']} 个"),
+        ("🧑‍💻 语言", CA['language'] or "—", CB['language'] or "—"),
+    ]
+    table = ('<table><tr><th>指标</th><th class="n red">TencentDB-Agent-Memory</th>'
+             '<th class="n blue">CubeSandbox</th></tr>')
+    for name, va, vb in rows:
+        table += f'<tr><td>{name}</td><td class="n red">{va}</td><td class="n blue">{vb}</td></tr>'
+    table += '</table>'
+
+    A = info["TencentDB-Agent-Memory"]; B = info["CubeSandbox"]
+    da = ('+' + format(A['delta'], ',')) if A['delta'] > 0 else '0'
+    db = ('+' + format(B['delta'], ',')) if B['delta'] > 0 else '0'
+    concl = (f"<b>📌 先看结论：</b><br>"
+             f"• <b>谁更火：</b>目前 CubeSandbox 全面领先——Star {CB['stars']:,}（对方 {CA['stars']:,}）、"
+             f"Fork {CB['forks']:,}（对方 {CA['forks']:,}）、贡献者 {CB['contributors']} 人（对方 {CA['contributors']} 人）。<br>"
+             f"• <b>谁开发更活跃：</b>还是 CubeSandbox——提交 {CB['commits']:,} 次、合并 {CB['pr_merged']} 个代码请求、发 {CB['releases']} 个版本。<br>"
+             f"• <b>最新真实区间变化：</b>{A['previous_date']} 至 {A['last_star']}，"
+             f"TencentDB-Agent-Memory 累计新增 {da}；CubeSandbox 累计新增 {db}。这是区间增量，不冒充单日数据。")
+
+    charts_html = "".join(
+        f'<div class="card"><div class="chart-title">{v["title"]}</div>'
+        f'<div class="tools">💡 悬停查看每天数值，图例可点击隐藏/显示某条曲线</div>'
+        f'<div class="chart-box"><canvas id="{v["id"]}"></canvas></div></div>'
+        for v in views)
+
+    chartjs = open(CHARTJS, encoding="utf-8").read()
+    html = SITE_HTML.format(
+        chartjs=chartjs, today=today, concl=concl, table=table,
+        charts=charts_html,
+        data_json=json.dumps({"views": views}, ensure_ascii=False))
+    out = os.path.join(site_dir, "index.html")
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(html)
+    # 关闭 Jekyll 处理，确保原样发布
+    open(os.path.join(site_dir, ".nojekyll"), "w").close()
+    print(f"[site] 交互报告已生成 {out} ({os.path.getsize(out)} bytes)", flush=True)
+    return out
+
+
+def send_mail(history, online_url=None):
     host = os.environ["SMTP_HOST"]
     port = int(os.environ.get("SMTP_PORT", "465"))
     user = os.environ["SMTP_USER"]
@@ -373,7 +513,7 @@ def send_mail(history):
 
     today = bj_today()
     info, comm = load_stats(history)
-    body = build_body_html(info, comm, today)
+    body = build_body_html(info, comm, today, online_url=online_url)
     msg = EmailMessage()
     msg["Subject"] = f"[每日] GitHub Star 增长对比报告 · {today}"
     msg["From"] = from_addr
@@ -411,11 +551,19 @@ def main():
             raise SystemExit(f"T+0校验失败：{name} 缺少今日({today})数据点，拒绝发送滞后数据")
     print(f"[T+0] 校验通过：今日({today})实时数据已就位", flush=True)
 
-    # 3) 社区指标 + 渲染 + 发信
+    # 3) 社区指标 + 渲染图表
     fetch_community()
     render_charts(history)
-    send_mail(history)
-    print("===== 云端流水线完成，邮件已发出 =====", flush=True)
+
+    # 4) 生成交互式在线报告（部署到 GitHub Pages 的固定网址）
+    info, comm = load_stats(history)
+    build_interactive_site(history, comm, info, today)
+
+    # 5) 发信，正文注入永久在线链接（Pages 固定网址，7x24 稳定）
+    online_url = os.environ.get("PAGES_URL", "").strip() or \
+        "https://andyypli.github.io/star-daily-report/"
+    send_mail(history, online_url=online_url)
+    print(f"===== 云端流水线完成，邮件已发出（在线报告：{online_url}）=====", flush=True)
 
 
 if __name__ == "__main__":
