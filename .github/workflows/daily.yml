@@ -1,0 +1,61 @@
+name: Daily Star Report
+
+# 触发方式：
+#   1) 每天 UTC 00:00 = 北京时间 08:00 自动运行（GitHub 云端服务器执行，与你的电脑无关）
+#   2) 允许手动触发（Actions 页面点 Run workflow），用于测试/补发
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+# 允许把更新后的 star_history.json 提交回仓库（云端自维护历史数据）
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-star-report
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Google Chrome (for chart rendering)
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Run daily pipeline (fetch T+0 data, render, send mail)
+        env:
+          GH_TOKEN: ${{ secrets.GH_STAR_TOKEN }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: |
+          python scripts/cloud_pipeline.py
+
+      - name: Persist history back to repo (cloud keeps its own data)
+        if: always()
+        run: |
+          git config user.name "star-bot"
+          git config user.email "star-bot@users.noreply.github.com"
+          git add stars/star_history.json stars/*.community.json 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update star history $(date -u +%Y-%m-%d)"
+            git push
+          else
+            echo "No data change to commit."
+          fi
