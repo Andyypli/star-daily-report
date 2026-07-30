@@ -8,11 +8,9 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:
 
-# contents:write 用于回写历史数据；pages/id-token 用于部署 GitHub Pages 在线报告
+# 仅需 contents:write 回写历史数据。交互报告作为邮件附件发送，不再依赖 GitHub Pages。
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: daily-star-report
@@ -22,10 +20,6 @@ jobs:
   send:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # 把 Pages 固定网址暴露给后续步骤（部署完成后回填真实 url）
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy-pages.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,7 +35,7 @@ jobs:
         with:
           chrome-version: stable
 
-      - name: Run daily pipeline (fetch T+0 data, render, build site, send mail)
+      - name: Run daily pipeline (fetch T+0 data, render, build report, send mail with attachment)
         env:
           GH_TOKEN: ${{ secrets.GH_STAR_TOKEN }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
@@ -51,7 +45,6 @@ jobs:
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
           CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
-          PAGES_URL: https://andyypli.github.io/star-daily-report/
         run: |
           python scripts/cloud_pipeline.py
 
@@ -67,12 +60,3 @@ jobs:
           else
             echo "No data change to commit."
           fi
-
-      - name: Upload Pages artifact (interactive online report)
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-      - name: Deploy to GitHub Pages
-        id: deploy-pages
-        uses: actions/deploy-pages@v4
