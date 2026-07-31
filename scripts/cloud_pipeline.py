@@ -558,10 +558,26 @@ def main():
     info, comm = load_stats(history)
     build_interactive_site(history, comm, info, today)
 
-    # 5) 发信：图文正文 + 在线查看按钮（只有按钮、正文无明文链接，用户名不出现在可见文本）
+    # 5) 当日幂等：定时触发若今天已发过则跳过（两个 cron 兜底不会重复发信）；
+    #    手动触发(workflow_dispatch)允许强制补发。
+    sent_marker = os.path.join(STARS, f".sent_{today}")
+    event = os.environ.get("GITHUB_EVENT_NAME", "")
+    if event == "schedule" and os.path.exists(sent_marker):
+        print(f"[幂等] 今日({today})已发送过，本次定时触发跳过，不重复发信。", flush=True)
+        return
+
+    # 6) 发信：图文正文 + 在线查看按钮（只有按钮、正文无明文链接，用户名不出现在可见文本）
     online_url = os.environ.get("PAGES_URL", "").strip() or \
         "https://andyypli.github.io/star-daily-report/"
     send_mail(history, online_url=online_url)
+
+    # 7) 写当日已发标记（随 git 回写仓库，供下一次兜底触发判断幂等）
+    try:
+        with open(sent_marker, "w", encoding="utf-8") as f:
+            f.write(datetime.now(timezone.utc).isoformat())
+        print(f"[幂等] 已写当日发送标记 {os.path.basename(sent_marker)}", flush=True)
+    except Exception as e:
+        print(f"[幂等] 写标记失败(不影响发信): {e}", flush=True)
     print(f"===== 云端流水线完成，邮件已发出（在线报告：{online_url}）=====", flush=True)
 
 

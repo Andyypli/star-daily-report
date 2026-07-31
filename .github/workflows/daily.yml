@@ -1,11 +1,16 @@
 name: Daily Star Report
 
 # 触发方式：
-#   1) 每天 UTC 00:00 = 北京时间 08:00 自动运行（GitHub 云端服务器执行，与你的电脑无关）
+#   1) 定时自动运行（GitHub 云端服务器执行，与你的电脑无关）
+#      注意：GitHub schedule 在 UTC 整点(尤其 00:00)因全球抢占会严重延迟(官方称可达数小时)。
+#      故避开整点、并提前发车 + 双时刻兜底，确保北京时间 08:00 前后必达。
+#      - UTC 23:35 = 北京 07:35（提前发车，主）
+#      - UTC 23:50 = 北京 07:50（兜底，若主次未派发则补上；脚本当日幂等，不会重复发）
 #   2) 允许手动触发（Actions 页面点 Run workflow），用于测试/补发
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '35 23 * * *'
+    - cron: '50 23 * * *'
   workflow_dispatch:
 
 # contents:write 回写历史数据；pages/id-token 用于部署 GitHub Pages 在线报告
@@ -71,9 +76,9 @@ jobs:
         run: |
           git config user.name "star-bot"
           git config user.email "star-bot@users.noreply.github.com"
-          git add stars/star_history.json stars/*.community.json 2>/dev/null || true
+          git add stars/star_history.json stars/*.community.json stars/.sent_* 2>/dev/null || true
           if ! git diff --cached --quiet; then
-            git commit -m "chore: update star history $(date -u +%Y-%m-%d)"
+            git commit -m "chore: update star history & sent marker $(date -u +%Y-%m-%d)"
             git push
           else
             echo "No data change to commit."
