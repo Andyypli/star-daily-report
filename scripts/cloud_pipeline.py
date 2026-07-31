@@ -337,13 +337,16 @@ def build_body_html(info, comm, today, online_url=None):
         for (fn, title), cid in zip(CHARTS, [c[0].replace('.png', '') for c in CHARTS]))
     da = ('+' + format(A['delta'], ',')) if A['delta'] > 0 else '0'
     db = ('+' + format(B['delta'], ',')) if B['delta'] > 0 else '0'
-    online_block = (
-        '<div style="background:#eef3ff;border:1px solid #d5e2ff;border-radius:10px;'
-        'padding:16px 18px;text-align:center;margin:16px 0">'
-        '<div style="font-size:13.5px;color:#1f2a37;line-height:1.9">'
-        '📎 想看可交互的完整报告（可缩放、悬停查看每天数据）？<br>'
-        '本邮件已附带 <b>report.html</b> 附件，下载后双击用浏览器打开即可，'
-        '无需任何外部链接、永不失效。</div></div>')
+    online_block = ""
+    if online_url:
+        online_block = (
+            '<div style="background:#eef3ff;border:1px solid #d5e2ff;border-radius:10px;'
+            'padding:16px 18px;text-align:center;margin:16px 0">'
+            '<div style="font-size:13.5px;color:#1f2a37;margin-bottom:12px">'
+            '📊 想看可交互的完整报告（可缩放、悬停查看每天数据）？点下方按钮，浏览器直接打开：</div>'
+            f'<a href="{online_url}" style="display:inline-block;background:#2f6df6;color:#fff;'
+            'text-decoration:none;font-weight:700;font-size:15px;padding:11px 30px;border-radius:8px">'
+            '🔗 在线查看完整报告</a></div>')
     return f"""<div style="font-family:-apple-system,PingFang SC,Microsoft YaHei,sans-serif;color:#1f2a37;max-width:760px;margin:0 auto;line-height:1.7">
 <h2 style="font-size:20px;margin:0 0 4px">两个开源项目，到底谁更受欢迎？—— 一图看懂</h2>
 <div style="color:#6b7280;font-size:13px;margin-bottom:6px">对比：TencentDB-Agent-Memory（<span style="color:#e23b3b">红</span>） vs CubeSandbox（<span style="color:#2f6df6">蓝</span>），均来自腾讯云 · 数据更新至 {today}（北京时间，T+0 实时）</div>
@@ -508,7 +511,8 @@ def send_mail(history, online_url=None):
 
     today = bj_today()
     info, comm = load_stats(history)
-    body = build_body_html(info, comm, today, online_url=None)
+    # 正文注入在线按钮（只有按钮、无明文链接，保护用户名不出现在邮件可见文本）
+    body = build_body_html(info, comm, today, online_url=online_url)
     msg = EmailMessage()
     msg["Subject"] = f"[每日] GitHub Star 增长对比报告 · {today}"
     msg["From"] = from_addr
@@ -521,13 +525,6 @@ def send_mail(history, online_url=None):
     for (fn, _), cid in zip(CHARTS, [c[0].replace('.png', '') for c in CHARTS]):
         with open(os.path.join(CHARTDIR, fn), "rb") as f:
             html_part.add_related(f.read(), maintype="image", subtype="png", cid=f"<{cid}>")
-    # 交互报告作为附件（report.html），彻底不依赖任何外链
-    site_html = os.path.join(BASE, "site", "index.html")
-    if os.path.exists(site_html):
-        with open(site_html, "rb") as f:
-            msg.add_attachment(f.read(), maintype="text", subtype="html",
-                               filename=f"report_{today}.html")
-        print(f"[mail] 已附加交互报告 report_{today}.html", flush=True)
     ctx = ssl.create_default_context()
     if port == 465:
         with smtplib.SMTP_SSL(host, port, context=ctx, timeout=30) as s:
@@ -557,13 +554,15 @@ def main():
     fetch_community()
     render_charts(history)
 
-    # 4) 生成交互式报告 HTML（作为邮件附件，彻底不依赖外链）
+    # 4) 生成交互式报告 HTML（部署到 GitHub Pages 的固定网址）
     info, comm = load_stats(history)
     build_interactive_site(history, comm, info, today)
 
-    # 5) 发信：图文正文 + report.html 附件，正文无任何外部链接
-    send_mail(history)
-    print("===== 云端流水线完成，邮件已发出（交互报告见附件 report.html）=====", flush=True)
+    # 5) 发信：图文正文 + 在线查看按钮（只有按钮、正文无明文链接，用户名不出现在可见文本）
+    online_url = os.environ.get("PAGES_URL", "").strip() or \
+        "https://andyypli.github.io/star-daily-report/"
+    send_mail(history, online_url=online_url)
+    print(f"===== 云端流水线完成，邮件已发出（在线报告：{online_url}）=====", flush=True)
 
 
 if __name__ == "__main__":
