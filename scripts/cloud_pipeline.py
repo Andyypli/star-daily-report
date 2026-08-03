@@ -297,6 +297,75 @@ def load_stats(history):
     return info, comm
 
 
+NAME_A = "TencentDB-Agent-Memory"
+NAME_B = "CubeSandbox"
+
+
+def _cmp_phrase(name_a, va, name_b, vb, unit=""):
+    """按数值大小返回一句动态对比描述（谁高谁在前，处理持平）。"""
+    if va == vb:
+        return f"两者持平（均 {va:,}{unit}）"
+    hi_name, hi_v, lo_name, lo_v = (name_a, va, name_b, vb) if va > vb else (name_b, vb, name_a, va)
+    return f"{hi_name} {hi_v:,}{unit} 领先（对方 {lo_v:,}{unit}）"
+
+
+def build_conclusion(info, comm):
+    """根据真实数据动态生成结论，绝不写死谁领先。逐项判断人气与活跃度。"""
+    A = info[NAME_A]; B = info[NAME_B]
+    CA = comm[NAME_A]; CB = comm[NAME_B]
+
+    # ① 人气：以 Star 为主判据（最直观），并列出 Fork / 贡献者的各自胜负
+    pop_metrics = [
+        ("Star", CA['stars'], CB['stars']),
+        ("Fork", CA['forks'], CB['forks']),
+        ("贡献者", CA['contributors'], CB['contributors']),
+    ]
+    a_wins = sum(1 for _, x, y in pop_metrics if x > y)
+    b_wins = sum(1 for _, x, y in pop_metrics if y > x)
+    star_a, star_b = CA['stars'], CB['stars']
+    if star_a == star_b:
+        pop_lead = "两个项目 Star 持平"
+    else:
+        lead_name, lead_v, other_v = (NAME_A, star_a, star_b) if star_a > star_b else (NAME_B, star_b, star_a)
+        if (a_wins == 3) or (b_wins == 3):
+            # 三项全赢才叫“全面领先”
+            pop_lead = f"{lead_name} 全面领先"
+        elif a_wins > 0 and b_wins > 0:
+            pop_lead = f"{lead_name} 以 Star 数领先（{lead_v:,} vs {other_v:,}），但双方各有胜负"
+        else:
+            pop_lead = f"{lead_name} 领先"
+    pop_detail = (f"Star {_cmp_phrase(NAME_A, star_a, NAME_B, star_b)}、"
+                  f"Fork {_cmp_phrase(NAME_A, CA['forks'], NAME_B, CB['forks'])}、"
+                  f"贡献者 {_cmp_phrase(NAME_A, CA['contributors'], NAME_B, CB['contributors'], ' 人')}")
+
+    # ② 活跃度：Commit / PR合并 / Release
+    act_metrics = [
+        ("提交", CA['commits'], CB['commits']),
+        ("合并代码请求", CA['pr_merged'], CB['pr_merged']),
+        ("发布版本", CA['releases'], CB['releases']),
+    ]
+    aa = sum(1 for _, x, y in act_metrics if x > y)
+    bb = sum(1 for _, x, y in act_metrics if y > x)
+    if aa > bb:
+        act_lead = f"{NAME_A} 更活跃"
+    elif bb > aa:
+        act_lead = f"{NAME_B} 更活跃"
+    else:
+        act_lead = "两者活跃度接近"
+    act_detail = (f"提交 {_cmp_phrase(NAME_A, CA['commits'], NAME_B, CB['commits'], ' 次')}、"
+                  f"合并 {_cmp_phrase(NAME_A, CA['pr_merged'], NAME_B, CB['pr_merged'], ' 个代码请求')}、"
+                  f"版本 {_cmp_phrase(NAME_A, CA['releases'], NAME_B, CB['releases'], ' 个')}")
+
+    da = ('+' + format(A['delta'], ',')) if A['delta'] > 0 else '0'
+    db = ('+' + format(B['delta'], ',')) if B['delta'] > 0 else '0'
+    return {
+        "pop_lead": pop_lead, "pop_detail": pop_detail,
+        "act_lead": act_lead, "act_detail": act_detail,
+        "da": da, "db": db,
+        "prev_date": A['previous_date'], "last_date": A['last_star'],
+    }
+
+
 def build_body_html(info, comm, today, online_url=None):
     A = info["TencentDB-Agent-Memory"]; B = info["CubeSandbox"]
     CA = comm["TencentDB-Agent-Memory"]; CB = comm["CubeSandbox"]
@@ -337,6 +406,7 @@ def build_body_html(info, comm, today, online_url=None):
         for (fn, title), cid in zip(CHARTS, [c[0].replace('.png', '') for c in CHARTS]))
     da = ('+' + format(A['delta'], ',')) if A['delta'] > 0 else '0'
     db = ('+' + format(B['delta'], ',')) if B['delta'] > 0 else '0'
+    concl = build_conclusion(info, comm)
     online_block = ""
     if online_url:
         online_block = (
@@ -353,8 +423,8 @@ def build_body_html(info, comm, today, online_url=None):
 {online_block}
 <div style="background:#f6f8fb;border-radius:10px;padding:14px 16px;font-size:13px;line-height:1.95;margin:14px 0">
 <b>📌 先看结论：</b><br>
-• <b>谁更火：</b>目前 CubeSandbox 全面领先——Star {CB['stars']:,}（对方 {CA['stars']:,}）、Fork {CB['forks']:,}（对方 {CA['forks']:,}）、贡献者 {CB['contributors']} 人（对方 {CA['contributors']} 人）。<br>
-• <b>谁开发更活跃：</b>还是 CubeSandbox——提交 {CB['commits']:,} 次、合并 {CB['pr_merged']} 个代码请求、发 {CB['releases']} 个版本。<br>
+• <b>谁更火：</b>{concl['pop_lead']}——{concl['pop_detail']}。<br>
+• <b>谁开发更活跃：</b>{concl['act_lead']}——{concl['act_detail']}。<br>
 • <b>最新真实区间变化：</b>{A['previous_date']} 至 {A['last_star']}，TencentDB-Agent-Memory 累计新增 {da}；CubeSandbox 累计新增 {db}。这是区间增量，不冒充单日数据。
 </div>
 <h3 style="font-size:16px;margin:22px 0 6px">📊 开源社区都看哪些指标？（附大白话解释）</h3>
@@ -472,10 +542,10 @@ def build_interactive_site(history, comm, info, today):
     A = info["TencentDB-Agent-Memory"]; B = info["CubeSandbox"]
     da = ('+' + format(A['delta'], ',')) if A['delta'] > 0 else '0'
     db = ('+' + format(B['delta'], ',')) if B['delta'] > 0 else '0'
+    _c = build_conclusion(info, comm)
     concl = (f"<b>📌 先看结论：</b><br>"
-             f"• <b>谁更火：</b>目前 CubeSandbox 全面领先——Star {CB['stars']:,}（对方 {CA['stars']:,}）、"
-             f"Fork {CB['forks']:,}（对方 {CA['forks']:,}）、贡献者 {CB['contributors']} 人（对方 {CA['contributors']} 人）。<br>"
-             f"• <b>谁开发更活跃：</b>还是 CubeSandbox——提交 {CB['commits']:,} 次、合并 {CB['pr_merged']} 个代码请求、发 {CB['releases']} 个版本。<br>"
+             f"• <b>谁更火：</b>{_c['pop_lead']}——{_c['pop_detail']}。<br>"
+             f"• <b>谁开发更活跃：</b>{_c['act_lead']}——{_c['act_detail']}。<br>"
              f"• <b>最新真实区间变化：</b>{A['previous_date']} 至 {A['last_star']}，"
              f"TencentDB-Agent-Memory 累计新增 {da}；CubeSandbox 累计新增 {db}。这是区间增量，不冒充单日数据。")
 
