@@ -1,6 +1,6 @@
 {
   "repo": "TencentCloud/CubeSandbox",
-  "stars": 11043,
+  "stars": 11044,
   "forks": 1018,
   "watchers": 66,
   "issues_total": 310,
@@ -15,7 +15,7 @@
   "license": "NOASSERTION",
   "created_at": "2026-04-10T03:00:31Z",
   "pushed_at": "2026-08-11T12:09:23Z",
-  "updated_at": "2026-08-11T22:22:40Z",
+  "updated_at": "2026-08-12T00:25:48Z",
   "disk_kb": 54431,
   "description": "Instant, Concurrent, Secure & Lightweight Sandbox for AI Agents.",
   "topics": [
