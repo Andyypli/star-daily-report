@@ -1,22 +1,22 @@
 {
   "repo": "TencentCloud/TencentDB-Agent-Memory",
-  "stars": 25715,
-  "forks": 2402,
-  "watchers": 88,
-  "issues_total": 337,
-  "issues_open": 194,
+  "stars": 25848,
+  "forks": 2412,
+  "watchers": 89,
+  "issues_total": 341,
+  "issues_open": 198,
   "issues_closed": 143,
-  "pr_total": 882,
-  "pr_open": 571,
-  "pr_merged": 65,
+  "pr_total": 894,
+  "pr_open": 577,
+  "pr_merged": 67,
   "releases": 14,
-  "commits": 26,
+  "commits": 28,
   "language": "TypeScript",
   "license": "NOASSERTION",
   "created_at": "2026-04-07T06:34:26Z",
-  "pushed_at": "2026-08-31T07:35:24Z",
-  "updated_at": "2026-09-03T01:29:20Z",
-  "disk_kb": 35783,
+  "pushed_at": "2026-09-03T02:31:45Z",
+  "updated_at": "2026-09-04T00:48:49Z",
+  "disk_kb": 34724,
   "description": "TencentDB Agent Memory is a team-level memory hub for AI Agents — turning conversations, docs, and code into four reusable memory assets (Chat Memory, Skill, LLM-Wiki, Code-Graph) that are governed, shared, and equipped across agents and frameworks.",
   "topics": [
     "agent",
@@ -29,6 +29,6 @@
     "long-term-memory",
     "vector-search"
   ],
-  "contributors_est": 29,
-  "contributors": 7
+  "contributors_est": 31,
+  "contributors": 9
 }
