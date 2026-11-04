@@ -16,7 +16,7 @@
   "created_at": "2026-04-10T03:00:31Z",
   "pushed_at": "2026-11-04T02:18:47Z",
   "updated_at": "2026-11-04T03:01:51Z",
-  "disk_kb": 65900,
+  "disk_kb": 65936,
   "description": "Instant, Concurrent, Secure & Lightweight Sandbox for AI Agents.",
   "topics": [
     "agents",
