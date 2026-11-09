@@ -1,21 +1,21 @@
 {
   "repo": "TencentCloud/CubeSandbox",
-  "stars": 13188,
-  "forks": 1201,
+  "stars": 13196,
+  "forks": 1204,
   "watchers": 56,
   "issues_total": 561,
   "issues_open": 109,
   "issues_closed": 452,
-  "pr_total": 1569,
-  "pr_open": 97,
-  "pr_merged": 1089,
+  "pr_total": 1574,
+  "pr_open": 100,
+  "pr_merged": 1091,
   "releases": 55,
-  "commits": 1177,
+  "commits": 1179,
   "language": "Go",
   "license": "NOASSERTION",
   "created_at": "2026-04-10T03:00:31Z",
-  "pushed_at": "2026-11-07T13:38:10Z",
-  "updated_at": "2026-11-07T23:50:39Z",
+  "pushed_at": "2026-11-09T02:27:20Z",
+  "updated_at": "2026-11-09T02:27:24Z",
   "disk_kb": 69962,
   "description": "Instant, Concurrent, Secure & Lightweight Sandbox for AI Agents.",
   "topics": [
@@ -23,6 +23,6 @@
     "container",
     "sandbox"
   ],
-  "contributors_est": 128,
-  "contributors": 120
+  "contributors_est": 130,
+  "contributors": 122
 }
